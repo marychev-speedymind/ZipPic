@@ -3,13 +3,14 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Collections.Generic;
+using ImageMagick;
 
 
 namespace ZipPic
 {
     public class ZipPicDir
     {
-        public readonly List<string> HomeDir = Directory.GetCurrentDirectory().Split('/').ToList();
+        public readonly List<string> HomeDir;  //  Directory.GetCurrentDirectory().Split('/').ToList();
         public readonly string TargetImage = "mergedimage.png";
         public string DefaultDir;
         public string TempDir;
@@ -22,13 +23,17 @@ namespace ZipPic
 
         public ZipPicDir() 
         {
-            this.TempDir = $"{WorkDir}/ZipPic";
+            this.HomeDir = (Environment.OSVersion.Platform.ToString().ToLower().Contains("win")) 
+                ? new List<string> { "c", "User", Environment.UserName, "Downloads" } 
+                : Directory.GetCurrentDirectory().Split('/').ToList();
+            
             this.ubutuDefaultDir = $"/{HomeDir[1]}/{HomeDir[2]}/Downloads";
-            // todo:
-            this.windowsDefaultDir = @"c:\";    
-            this.DefaultDir = ubutuDefaultDir;
-            this.workDir = ubutuDefaultDir;
-            this.TempDir = $"{this.workDir}/ZipPic";
+            this.windowsDefaultDir = $"{HomeDir[0]}:\\{HomeDir[1]}\\{HomeDir[2]}\\{HomeDir[3]}";
+
+            // this.DefaultDir = (Environment.OSVersion.Platform.ToString().Contains("win")) ? windowsDefaultDir : ubutuDefaultDir;
+            this.DefaultDir = windowsDefaultDir;
+            this.workDir = this.DefaultDir;
+            this.TempDir = $"{WorkDir}/ZipPic";
         }
 
         public string WorkDir
@@ -64,24 +69,30 @@ namespace ZipPic
         }
     
         public void Help() {
-            string helpTxt = $"[HELP]\r\nDefault paths for searching '*kta' files:\r\n -[x] Ubuntu: {this.ubutuDefaultDir}\r\n -[ ] Windows: {this.windowsDefaultDir}";
+            string helpTxt = $"[HELP]\r\nDefault paths for searching '*kta' files:\r\n -[ ] Ubuntu: {this.ubutuDefaultDir}\r\n -[x] Windows: {this.windowsDefaultDir}";
             Console.WriteLine(helpTxt);
         }
 
-        public void ExtractToImage() 
+        public Stream GetImageStream(string toZip) 
         {
-            using(var file = File.OpenRead(PathToZip))
+            using (var file = File.OpenRead(toZip))
             using(var zip = new ZipArchive(file, ZipArchiveMode.Read)) 
             {
                 foreach(var entry in zip.Entries)
                 {
+                    var img = entry.Open();
                     if (entry.ToString() == TargetImage) {
-                        string destination = Path.GetFullPath(Path.Combine(TempDir, entry.FullName));
-                        entry.ExtractToFile(destination);
-                        return;
+                        using (MagickImage image = new(img))
+                        {
+                            var screenshot1 = image.Clone(0, 0, 1242, 2208);
+                            screenshot1.Write(new FileInfo(@"C:\Temp\screen1.png"), MagickFormat.Png);
+                        }
+                        return img;
                     }
                 }
             }
+
+            return null;
         }
 
     }
