@@ -10,38 +10,19 @@ namespace ZipPic
 {
     class Program
     {
-
-        // public readonly static int Chunk = 1242;
-        // public readonly static int Space = 52;
-
-        //private static void ShowHeader() { 
-        //    ZipPicDir zpDir = new();
-        //    zpDir.Help();
-
-        //    Console.WriteLine();
-        //    Console.WriteLine("We will search the `*kra` files.");
-        //    Console.WriteLine($"What is the directory we will search file?\n\r(Default path: {zpDir.DefaultDir})");
-        //}
-
-        //static bool ByteArrayCompare(ReadOnlySpan<byte> a1, ReadOnlySpan<byte> a2)
-        //{
-        //    return a1.SequenceEqual(a2);
-        //}
-
-        static void Crop(MagickImage magickImage, string fullPath, int chunk, int spacing) 
+        static void Crop(MagickImage magickImage, string path, int chunk, int spacing) 
         {
             int width = magickImage.Width;
             MagickGeometry geometry = new();
 
+            geometry.Width = chunk;
+            geometry.Height = magickImage.Height;
+            geometry.Y = 0;
+
             while (width > 0) 
             {
-                geometry.Width = chunk;
-                geometry.Height = magickImage.Height;
                 geometry.X += (chunk + spacing);
-                geometry.Y = 0;
-
-                CreateScreen(magickImage, geometry, fullPath);
-
+                CreateScreen(magickImage, geometry, path);
                 width -= (chunk + spacing);
             }
         }
@@ -57,102 +38,64 @@ namespace ZipPic
         {
             var screen = image.Clone(geometry);
             screen.Write(GetFullPathScreen(path, geometry), MagickFormat.Png);
+            Console.WriteLine("\t[+] Created a new screen: {0}", GetFullPathScreen(path, geometry));
         }
 
         static void Main(string[] args)
         {
             string TargetImage = "mergedimage.png";
 
-            // string workDir = Console.ReadLine();
-            string workDir = @"C:/mmc";
+            Console.WriteLine("Set directory to look for `*kra` files:");
+            string workDir = Path.GetFullPath(Console.ReadLine());
+            // string workDir = Path.GetFullPath(@"C:/mmc");
+
+            Console.WriteLine("Set directory to results:");
+            string outDir = Path.GetFullPath(Console.ReadLine());
+            // string outDir = Path.GetFullPath(@"C:/mmc/out");
+
+            if (!Directory.Exists(workDir)) 
+            {
+                string errorText = $"[ERROR]: {workDir} Dir was not found!";
+                Console.WriteLine(errorText);
+                throw new DirectoryNotFoundException(errorText);
+            }
+
+            if (!Directory.Exists(outDir))
+                Directory.CreateDirectory(outDir);
+
 
             foreach (string fullPath in Directory.EnumerateFiles(workDir, "*.kra", SearchOption.AllDirectories))
             {
-                Console.WriteLine(fullPath);
-
-                using (var file = File.OpenRead(fullPath))
-                using (var zip = new ZipArchive(file, ZipArchiveMode.Read))
+                string fullWorkPath = $"{Path.GetFullPath(fullPath).Replace(workDir, outDir)}";
+                if (!Directory.Exists(Path.GetDirectoryName(fullWorkPath)))
                 {
-                    var entry = zip.Entries.Where(x => x.ToString() == TargetImage).FirstOrDefault();
-                    using MagickImage image = new(entry.Open());
+                    Directory.CreateDirectory(Path.GetDirectoryName(fullWorkPath));
+                    Console.WriteLine("[+] Created a new dir: {0}", Path.GetDirectoryName(fullWorkPath));
+                }
 
-                    switch (image.Height)
-                    {
-                        case 2208:
-                            Crop(image, fullPath, 1242, 52);
-                            break;
-                        case 2688:
-                            Crop(image, fullPath, 1242, 52);
-                            break;
-                        case 2732:
-                            Crop(image, fullPath, 2732, 255);
-                            break;
-                        default:
-                            Crop(image, fullPath, image.Width, 0);
-                            break;
-                    }
+                using var file = File.OpenRead(fullPath);
+                using var zip = new ZipArchive(file, ZipArchiveMode.Read);
+                var entry = zip.Entries.Where(x => x.ToString() == TargetImage).FirstOrDefault();
+                using MagickImage image = new(entry.Open());
 
-                    //if (image.Height == 2732)
-                    //{
-                    //    Console.WriteLine(image);
-                    //}
-                    //else if (image.Height == 2208)
-                    //{
-                    //    Crop(image, f, 1242, 52);
-                    //}
-                    //else if (image.Height == 2268)
-                    //{
-                    //    Console.WriteLine(image);
-                    //}
-                    //else
-                    //{
-                    //    Console.WriteLine(image);
-                    //}
-
+                switch (image.Height)
+                {
+                    case 2208:
+                        Crop(image, fullWorkPath, 1242, 52);
+                        break;
+                    case 2688:
+                        Crop(image, fullWorkPath, 1242, 52);
+                        break;
+                    case 2732:
+                        Crop(image, fullWorkPath, 2732, 255);
+                        break;
+                    default:
+                        Crop(image, fullWorkPath, image.Width, 0);
+                        break;
                 }
             }
 
-
-            //var bytes1 = File.ReadAllBytes(@"C:\Temp\screen1.png");
-            //var bytes2 = File.ReadAllBytes(@"C:\Temp\screen2.png");
-            //var equal = ByteArrayCompare(bytes1, bytes2);
-
-            //ShowHeader();
-            //ZipPicDir zpDir = new();
-
-            // zpDir.WorkDir = Console.ReadLine();
-
-            //try {
-            //    Console.WriteLine();
-            //    Console.WriteLine($"We will work on the first file: {zpDir.GetFiles().FirstOrDefault()}");
-            //    if (Directory.Exists(zpDir.TempDir))
-            //    {
-            //        zpDir.CopyInTempDir();
-            //    } 
-            //    else 
-            //    {
-            //        zpDir.CreateTempDir();
-            //    }            
-            //}
-            //catch (Exception e) 
-            //{
-            //    Console.WriteLine("[ERROR]:\r\n{0}", e.ToString());
-            //}
-
-            // var img = zpDir.GetImageStream(@"C:\Users\speed\Downloads\1242X2208.zip");
-
-            //using (MagickImage image = new(zpDir.GetImageStream(@"C:\Users\speed\Downloads\1242X2208.zip")))
-            //{
-            //    var screenshot1 = image.Clone(0, 0, 1242, 2208);
-            //    screenshot1.Write(new FileInfo(@"C:\Temp\screen1.png"), MagickFormat.Png);
-            //}
-
-
-            // var currentDate = DateTime.Now;
-            // Console.WriteLine($"{Environment.NewLine}Hello, {name}, on {currentDate:d} at {currentDate:t}!");
-            // Console.Write($"{Environment.NewLine}Press any key to exit...");
-            Console.WriteLine("Finish! Press any keys");
-            Console.ReadKey(true);
+            Console.WriteLine("Creating screenshots was finished!");
         }
     }
 }
